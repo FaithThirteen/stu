@@ -1,5 +1,7 @@
 package gee
 
+import "strings"
+
 type node struct {
 	pattern  string  // 一个完整的URL，没有则为空
 	part     string  // 通过 '/' 分割的节点的路由，比如/abc/123，abc和123就是2个part
@@ -37,12 +39,13 @@ func (n *node) insert(pattern string, parts []string, height int) {
 		child = &node{part: part, isWild: part[0] == ':' || part[0] == '*'}
 		n.children = append(n.children, child)
 	}
-	n.insert(pattern, parts, height+1)
+	child.insert(pattern, parts, height+1)
 }
 
 // 这个函数跟matchChild有点像，但它是返回所有匹配的子节点，原因是它的场景是用以查找
 // 它必须返回所有可能的子节点来进行遍历查找
 // @params part string "路由子节点"
+// 所有匹配成功的节点，用于查找
 func (n *node) matchChildren(part string) []*node {
 	nodes := make([]*node, 0)
 	for _, child := range n.children {
@@ -54,14 +57,14 @@ func (n *node) matchChildren(part string) []*node {
 }
 
 func (n *node) search(parts []string, height int) *node {
-	if len(parts) == height {
+	if len(parts) == height || strings.HasPrefix(n.part, "*") {
 		if n.pattern == "" {
 			return nil
 		}
+		return n
 	}
 
 	part := parts[height]
-	// 获取所有可能的子路径
 	children := n.matchChildren(part)
 
 	for _, child := range children {
@@ -70,5 +73,6 @@ func (n *node) search(parts []string, height int) *node {
 			return result
 		}
 	}
+
 	return nil
 }

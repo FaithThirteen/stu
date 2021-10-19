@@ -16,13 +16,12 @@ func newRouter() *router {
 
 func (r *router) addRoute(method string, pattern string, handler HandlerFunc) {
 	parts := parsePattern(pattern)
-	key := method + "-" + pattern
 
+	key := method + "-" + pattern
 	_, ok := r.roots[method]
 	if !ok {
 		r.roots[method] = &node{}
 	}
-
 	// 插入路由前缀树
 	r.roots[method].insert(pattern, parts, 0)
 	// 生成路由与方法映射
