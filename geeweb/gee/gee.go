@@ -1,8 +1,10 @@
 package gee
 
 import (
+	"html/template"
 	"log"
 	"net/http"
+	"path"
 	"strings"
 )
 
@@ -15,6 +17,8 @@ type Engine struct {
 	*RouterGroup                // 分组，engine其实算是一个最大的分组
 	router       *router        // 路由
 	groups       []*RouterGroup // 所有的路由分组
+	htmlTemplates *template.Template // for html render
+	funcMap       template.FuncMap   // for html render
 }
 
 // RouterGroup 路由分组
@@ -63,11 +67,35 @@ func (g *RouterGroup) POST(pattern string, handler HandlerFunc) {
 	g.addRoute("POST", pattern, handler)
 }
 
-
 // Use 添加中间件
 func (g *RouterGroup) Use(middlewares ...HandlerFunc){
 	g.middlewares = append(g.middlewares,middlewares...)
 }
+
+// createStaticHandler create static handler
+func (g *RouterGroup) createStaticHandler(relativePath string, fs http.FileSystem) HandlerFunc {
+	absolutePath := path.Join(g.prefix, relativePath)
+	fileServer := http.StripPrefix(absolutePath, http.FileServer(fs))
+	return func(c *Context) {
+		file := c.Param("filepath")
+		// Check if file exists and/or if we have permission to access it
+		if _, err := fs.Open(file); err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		fileServer.ServeHTTP(c.Writer, c.Req)
+	}
+}
+
+// Static serve static files
+func (g *RouterGroup) Static(relativePath string, root string) {
+	handler := g.createStaticHandler(relativePath, http.Dir(root))
+	urlPattern := path.Join(relativePath, "/*filepath")
+	// Register GET handlers
+	g.GET(urlPattern, handler)
+}
+
 
 func (engine *Engine) addRoute(method string, pattern string, handler HandlerFunc) {
 	engine.router.addRoute(method, pattern, handler)
@@ -103,5 +131,6 @@ func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// 先将中间件放到context的handlers中
 	c := newContext(w, req)
 	c.handlers = middlewares
+	c.engine = engine
 	engine.router.handle(c)
 }
