@@ -3,6 +3,7 @@ package gee
 import (
 	"log"
 	"net/http"
+	"strings"
 )
 
 // HandlerFunc 处理函数
@@ -63,6 +64,11 @@ func (g *RouterGroup) POST(pattern string, handler HandlerFunc) {
 }
 
 
+// Use 添加中间件
+func (g *RouterGroup) Use(middlewares ...HandlerFunc){
+	g.middlewares = append(g.middlewares,middlewares...)
+}
+
 func (engine *Engine) addRoute(method string, pattern string, handler HandlerFunc) {
 	engine.router.addRoute(method, pattern, handler)
 }
@@ -82,8 +88,20 @@ func (engine *Engine) Run(addr string) (err error) {
 	return http.ListenAndServe(addr, engine)
 }
 
-// 实现http接口
+// ServeHTTP 实现http接口
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+
+	// 通过匹配前缀，找出请求符合的中间件,
+	// engine本身也是一个group，因此全局的中间件每次在前面都会被加载
+	var middlewares []HandlerFunc
+	for _, group := range engine.groups {
+		if strings.HasPrefix(req.URL.Path, group.prefix) {
+			middlewares = append(middlewares, group.middlewares...)
+		}
+	}
+
+	// 先将中间件放到context的handlers中
 	c := newContext(w, req)
+	c.handlers = middlewares
 	engine.router.handle(c)
 }

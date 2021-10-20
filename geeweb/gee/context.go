@@ -8,7 +8,6 @@ import (
 
 type H map[string]interface{}
 
-
 // Context 用来存储请求上下文的信息
 type Context struct {
 	// origin objects
@@ -19,7 +18,10 @@ type Context struct {
 	Method string
 	// response info
 	StatusCode int
-	Params map[string]string
+	Params     map[string]string
+	// middleware
+	handlers []HandlerFunc
+	index    int
 }
 
 func newContext(w http.ResponseWriter, req *http.Request) *Context {
@@ -28,7 +30,20 @@ func newContext(w http.ResponseWriter, req *http.Request) *Context {
 		Req:    req,
 		Path:   req.URL.Path,
 		Method: req.Method,
+		index:  -1,
 	}
+}
+
+func (c *Context) Next() {
+	c.index++
+	l := len(c.handlers)
+	for ; c.index < l; c.index++ {
+		c.handlers[c.index](c)
+	}
+}
+
+func (c *Context) Fail(code int, msg string) {
+	c.String(code, msg)
 }
 
 func (c *Context) Param(key string) string {
