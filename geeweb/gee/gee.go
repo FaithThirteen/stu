@@ -14,9 +14,9 @@ type HandlerFunc func(*Context)
 // Engine 实现了 ServeHTTP
 // 本身也是一个组
 type Engine struct {
-	*RouterGroup                // 分组，engine其实算是一个最大的分组
-	router       *router        // 路由
-	groups       []*RouterGroup // 所有的路由分组
+	*RouterGroup                     // 分组，engine其实算是一个最大的分组
+	router        *router            // 路由
+	groups        []*RouterGroup     // 所有的路由分组
 	htmlTemplates *template.Template // for html render
 	funcMap       template.FuncMap   // for html render
 }
@@ -34,6 +34,13 @@ func New() *Engine {
 	engine := &Engine{router: newRouter()}
 	engine.RouterGroup = &RouterGroup{engine: engine}
 	engine.groups = []*RouterGroup{engine.RouterGroup}
+	return engine
+}
+
+// Default 新建一个默认带有日志与错误恢复的engine
+func Default() *Engine {
+	engine := New()
+	engine.Use(Logger(), Recovery())
 	return engine
 }
 
@@ -68,8 +75,8 @@ func (g *RouterGroup) POST(pattern string, handler HandlerFunc) {
 }
 
 // Use 添加中间件
-func (g *RouterGroup) Use(middlewares ...HandlerFunc){
-	g.middlewares = append(g.middlewares,middlewares...)
+func (g *RouterGroup) Use(middlewares ...HandlerFunc) {
+	g.middlewares = append(g.middlewares, middlewares...)
 }
 
 // createStaticHandler create static handler
@@ -95,7 +102,6 @@ func (g *RouterGroup) Static(relativePath string, root string) {
 	// Register GET handlers
 	g.GET(urlPattern, handler)
 }
-
 
 func (engine *Engine) addRoute(method string, pattern string, handler HandlerFunc) {
 	engine.router.addRoute(method, pattern, handler)
