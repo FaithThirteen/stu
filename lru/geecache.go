@@ -61,24 +61,31 @@ func (g *Group) Get(key string) (ByteView, error) {
 		return ByteView{}, fmt.Errorf("key is required")
 	}
 
+	// 返回缓存
 	if v, ok := g.mainCache.get(key); ok {
 		log.Println("[GeeCache] hit")
 		return v, nil
 	}
 
+	// 未找到缓存，需要加载数据
 	return g.load(key)
 }
 
+
+// load 调用 getLocally（分布式场景下会调用 getFromPeer 从其他节点获取）
 func (g *Group) load(key string) (value ByteView, err error) {
 	return g.getLocally(key)
 }
 
+// getLocally 调用用户回调函数 g.getter.Get() 获取源数据，并且将源数据添加到缓存 mainCache 中（通过 populateCache 方法）
 func (g *Group) getLocally(key string) (ByteView, error) {
+	// Get 为接口的方法，需要用户决定缓存中不存在时如何加载数据
 	bytes, err := g.getter.Get(key)
 	if err != nil {
 		return ByteView{}, err
 
 	}
+	// 获取数据后加载到缓存
 	value := ByteView{b: cloneBytes(bytes)}
 	g.populateCache(key, value)
 	return value, nil
