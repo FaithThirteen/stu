@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// 约定的基础url
 const defaultBasePath = "/_geecache/"
 
 // HTTPPool implements PeerPicker for a pool of HTTP peers.
@@ -42,6 +43,7 @@ func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 约定的路径获取group与key
 	groupName := parts[0]
 	key := parts[1]
 
