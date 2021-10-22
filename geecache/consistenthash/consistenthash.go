@@ -9,7 +9,7 @@ import (
 // Hash 允许用于替换成自定义的 Hash 函数，也方便测试时替换，默认为 crc32.ChecksumIEEE 算法
 type Hash func(data []byte) uint32
 
-// Map 哈希结构，包含虚拟节点倍数，哈希环，虚拟与真实节点映射表
+// Map 一致性哈希结构，包含虚拟节点倍数，哈希环，虚拟与真实节点映射表
 type Map struct {
 	hash     Hash           // 自定义的hash函数，默认为ChecksumIEEE
 	replicas int            // 虚拟节点倍数
@@ -39,6 +39,7 @@ func (m *Map) Add(keys ...string) {
 			m.hashMap[hash] = key                              // 映射虚拟节点和真实节点
 		}
 	}
+	// 排序，便于后续的查找
 	sort.Ints(m.keys)
 }
 
@@ -50,7 +51,7 @@ func (m *Map) Get(key string) string {
 	}
 
 	hash := int(m.hash([]byte(key)))
-	// Binary search for appropriate replica.
+	// 二分查找最近节点，hash大于最大值时会返回n
 	idx := sort.Search(len(m.keys), func(i int) bool {
 		return m.keys[i] >= hash
 	})
