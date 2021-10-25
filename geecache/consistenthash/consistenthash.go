@@ -33,6 +33,7 @@ func New(replicas int, fn Hash) *Map {
 // Add 添加真实节点
 func (m *Map) Add(keys ...string) {
 	for _, key := range keys {
+		// 对每个真实节点进行虚拟节点创建
 		for i := 0; i < m.replicas; i++ {
 			hash := int(m.hash([]byte(strconv.Itoa(i) + key))) // 生成虚拟节点的hash值
 			m.keys = append(m.keys, hash)                      // 插入hash环
@@ -56,5 +57,6 @@ func (m *Map) Get(key string) string {
 		return m.keys[i] >= hash
 	})
 
+	// 返回虚拟节点映射的真实节点
 	return m.hashMap[m.keys[idx%len(m.keys)]]
 }
