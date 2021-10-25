@@ -87,8 +87,11 @@ func (g *Group) RegisterPeers(peers PeerPicker) {
 
 // load 调用 getLocally（分布式场景下会调用 getFromPeer 从其他节点获取）
 func (g *Group) load(key string) (value ByteView, err error) {
+	// 其他节点不为空
 	if g.peers != nil {
+		// 首先通过key选择节点
 		if peer, ok := g.peers.PickPeer(key); ok {
+			// 获取数据
 			if value, err = g.getFromPeer(peer, key); err == nil {
 				return value, nil
 			}

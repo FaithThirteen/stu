@@ -27,6 +27,7 @@ func (c *cache) get(key string) (value ByteView, ok bool) {
 		return
 	}
 
+	// 封装的方法
 	if v, ok := c.lru.Get(key); ok {
 		return v.(ByteView), ok
 	}

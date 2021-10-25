@@ -103,6 +103,7 @@ type httpGetter struct {
 	baseURL string
 }
 
+// Get 获取数据
 func (h *httpGetter) Get(group string, key string) ([]byte, error) {
 	u := fmt.Sprintf(
 		"%v%v/%v",
