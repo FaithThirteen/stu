@@ -3,6 +3,8 @@ package geecache
 import (
 	"fmt"
 	"geecache/consistenthash"
+	pb "geecache/geecachepb"
+	"github.com/golang/protobuf/proto"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -11,9 +13,8 @@ import (
 	"sync"
 )
 
-
 const (
-	defaultBasePath = "/_geecache/"  // 约定的基础url
+	defaultBasePath = "/_geecache/" // 约定的基础url
 	defaultReplicas = 50
 )
 
@@ -46,14 +47,13 @@ func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		panic("HTTPPool serving unexpected path: " + r.URL.Path)
 	}
 	p.Log("%s %s", r.Method, r.URL.Path)
-	// /<basepath>/<groupname>/<key> 约定的规范请求路径
+	// /<basepath>/<groupname>/<key> required
 	parts := strings.SplitN(r.URL.Path[len(p.basePath):], "/", 2)
 	if len(parts) != 2 {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 
-	// 获取group与key
 	groupName := parts[0]
 	key := parts[1]
 
@@ -69,8 +69,14 @@ func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Write the value to the response body as a proto message.
+	body, err := proto.Marshal(&pb.Response{Value: view.ByteSlice()})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Write(view.ByteSlice())
+	w.Write(body)
 }
 
 // Set 为每个节点创建一个http客户端
@@ -81,7 +87,7 @@ func (p *HTTPPool) Set(peers ...string) {
 	p.peers.Add(peers...)
 	p.httpGetters = make(map[string]*httpGetter, len(peers))
 	for _, peer := range peers {
-		p.httpGetters[peer] = &httpGetter{baseURL: peer + p.basePath}
+		p.httpGetters[peer] = &httpGetter{baseURL: peer + p.basePath, grpcURL: peer}
 	}
 }
 
@@ -101,32 +107,90 @@ var _ PeerPicker = (*HTTPPool)(nil)
 
 type httpGetter struct {
 	baseURL string
+	grpcURL string
 }
 
-// Get 获取数据
-func (h *httpGetter) Get(group string, key string) ([]byte, error) {
+func (h *httpGetter) Get(in *pb.Request, out *pb.Response) error {
 	u := fmt.Sprintf(
 		"%v%v/%v",
 		h.baseURL,
-		url.QueryEscape(group),
-		url.QueryEscape(key),
+		url.QueryEscape(in.GetGroup()),
+		url.QueryEscape(in.GetKey()),
 	)
 	res, err := http.Get(u)
-	if err != nil {
-		return nil, err
-	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server returned: %v", res.Status)
+		return fmt.Errorf("server returned: %v", res.Status)
 	}
 
 	bytes, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("reading response body: %v", err)
+		return err
 	}
 
-	return bytes, nil
+	if err = proto.Unmarshal(bytes, out); err != nil {
+		return fmt.Errorf("decoding response body: %v", err)
+	}
+
+	return nil
 }
 
-var _ PeerGetter = (*httpGetter)(nil)
+// Get 获取数据http形式
+//func (h *httpGetter) Get(group string, key string) ([]byte, error) {
+//	u := fmt.Sprintf(
+//		"%v%v/%v",
+//		h.baseURL,
+//		url.QueryEscape(group),
+//		url.QueryEscape(key),
+//	)
+//	res, err := http.Get(u)
+//	if err != nil {
+//		return nil, err
+//	}
+//	defer res.Body.Close()
+//
+//	if res.StatusCode != http.StatusOK {
+//		return nil, fmt.Errorf("server returned: %v", res.Status)
+//	}
+//
+//	bytes, err := ioutil.ReadAll(res.Body)
+//	if err != nil {
+//		return nil, fmt.Errorf("reading response body: %v", err)
+//	}
+//
+//	return bytes, nil
+//}
+
+// // http形式
+//func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+//	if !strings.HasPrefix(r.URL.Path, p.basePath) {
+//		panic("HTTPPool serving unexpected path: " + r.URL.Path)
+//	}
+//	p.Log("%s %s", r.Method, r.URL.Path)
+//	// /<basepath>/<groupname>/<key> 约定的规范请求路径
+//	parts := strings.SplitN(r.URL.Path[len(p.basePath):], "/", 2)
+//	if len(parts) != 2 {
+//		http.Error(w, "bad request", http.StatusBadRequest)
+//		return
+//	}
+//
+//	// 获取group与key
+//	groupName := parts[0]
+//	key := parts[1]
+//
+//	group := GetGroup(groupName)
+//	if group == nil {
+//		http.Error(w, "no such group: "+groupName, http.StatusNotFound)
+//		return
+//	}
+//
+//	view, err := group.Get(key)
+//	if err != nil {
+//		http.Error(w, err.Error(), http.StatusInternalServerError)
+//		return
+//	}
+//
+//	w.Header().Set("Content-Type", "application/octet-stream")
+//	w.Write(view.ByteSlice())
+//}

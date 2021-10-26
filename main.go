@@ -77,22 +77,6 @@ func main() {
 	startCacheServer(addrMap[port], []string(addrs), gee)
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 //var db = map[string]string{
 //	"Tom":  "630",
 //	"Jack": "589",

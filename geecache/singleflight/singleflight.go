@@ -14,7 +14,7 @@ type Group struct {
 	m  map[string]*call
 }
 
-// Do 并发时无论 Do 被调用多少次，函数 fn 都只会被调用一次
+// Do 并发请求条件相同时无论 Do 被调用多少次，函数 fn 都只会被调用一次
 // https://pkg.go.dev/golang.org/x/sync/singleflight 标准库的singleflight实现
 func (g *Group) Do(key string, fn func() (interface{}, error)) (interface{}, error) {
 	// 加锁防止进入时其他请求添加key
