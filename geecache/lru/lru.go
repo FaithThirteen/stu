@@ -63,7 +63,7 @@ func (c *Cache) RemoveOldest() {
 // Add 添加缓存
 func (c *Cache) Add(key string, value Value) {
 
-	// 如果存在，更新缓存
+	// 如果存在，更新缓存，否则添加
 	if e, ok := c.cache[key]; ok {
 		c.ll.MoveToFront(e)
 		kv := e.Value.(*entry)
